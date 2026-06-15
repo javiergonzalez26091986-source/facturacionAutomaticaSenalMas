@@ -23,9 +23,47 @@ def calcular_rubros(total):
         resultados.append({
             "CÓDIGO PRODUCTO (OBLIGATORIO)": r["producto"],
             "DESCRIPCIÓN DE LA SECUENCIA": r["descripcion"],
-            "VALOR DE LA SECUENCIA   (OBLIGATORIO)": round(total * r["factor"], 2)
+            # Nota: Respetamos los 3 espacios de la plantilla de SIIGO
+            "VALOR DE LA SECUENCIA   (OBLIGATORIO)": round(total * r["factor"], 2) 
         })
     return resultados
+
+# Columnas exactas de la plantilla movimientocontablebasico de SIIGO
+COLUMNAS_SIIGO = [
+    "TIPO DE COMPROBANTE (OBLIGATORIO)",
+    "CÓDIGO COMPROBANTE  (OBLIGATORIO)",
+    "NÚMERO DE DOCUMENTO",
+    "VALOR DE LA SECUENCIA   (OBLIGATORIO)",
+    "AÑO DEL DOCUMENTO (OBLIGATORIO)",
+    "MES DEL DOCUMENTO (OBLIGATORIO)",
+    "DÍA DEL DOCUMENTO (OBLIGATORIO)",
+    "CÓDIGO DEL VENDEDOR",
+    "SECUENCIA (OBLIGATORIO)",
+    "CENTRO DE COSTO (OBLIGATORIO)",
+    "SUBCENTRO DE COSTO (OBLIGATORIO)",
+    "NIT (OBLIGATORIO)",
+    "SUCURSAL (OBLIGATORIO)",
+    "DESCRIPCIÓN DE LA SECUENCIA",
+    "VALOR DEL CARGO 1 DE LA SECUENCIA",
+    "VALOR DEL CARGO 2 DE LA SECUENCIA",
+    "VALOR DEL DESCUENTO 1 DE LA SECUENCIA",
+    "VALOR DEL DESCUENTO 2 DE LA SECUENCIA",
+    "PREFIJO DE ORDER REFERENCE",
+    "CONSECUTIVO DE ORDER REFERENCE",
+    "RUTA DOCUMENTO",
+    "PORCENTAJE DEL IVA DE LA SECUENCIA",
+    "LÍNEA PRODUCTO (OBLIGATORIO)",
+    "GRUPO PRODUCTO (OBLIGATORIO)",
+    "CÓDIGO PRODUCTO (OBLIGATORIO)",
+    "CANTIDAD (OBLIGATORIO)",
+    "CÓDIGO DE LA BODEGA (OBLIGATORIO)",
+    "CÓDIGO DE LA UBICACIÓN (OBLIGATORIO)",
+    "CANTIDAD DE FACTOR DE CONVERSIÓN",
+    "OPERADOR DE FACTOR DE CONVERSIÓN",
+    "VALOR DEL FACTOR DE CONVERSIÓN",
+    "DESCRIPCIÓN DE COMENTARIOS",
+    "DESCRIPCIÓN LARGA"
+]
 
 # Subida del archivo de clientes
 archivo_clientes = st.file_uploader("Sube el archivo 'Lista de Clientes - SEÑAL MÁS.xlsx' o CSV", type=['xlsx', 'csv'])
@@ -81,45 +119,29 @@ if archivo_clientes is not None:
                         
                         desglose = calcular_rubros(precio_plan)
                         
-                        # ESTRUCTURA EXACTA DE LA PLANTILLA SIIGO (34 COLUMNAS)
                         secuencia = 1
                         for item in desglose:
-                            fila = {
-                                "TIPO DE COMPROBANTE (OBLIGATORIO)": "Factura", # Revisa si SIIGO acepta "Factura" aquí o requiere un código contable
-                                "CÓDIGO COMPROBANTE  (OBLIGATORIO)": "1",
-                                "NÚMERO DE DOCUMENTO": "",
-                                "AÑO DEL DOCUMENTO (OBLIGATORIO)": hoy.year,
-                                "MES DEL DOCUMENTO (OBLIGATORIO)": hoy.month,
-                                "DÍA DEL DOCUMENTO (OBLIGATORIO)": hoy.day,
-                                "NIT (OBLIGATORIO)": nit_cliente,
-                                "SUCURSAL (OBLIGATORIO)": "0",
-                                "CÓDIGO DEL VENDEDOR": "1",
-                                "SECUENCIA (OBLIGATORIO)": secuencia,
-                                "CUENTA CONTABLE (OBLIGATORIO)": "", # Vacío porque usarás Producto
-                                "CENTRO DE COSTO (OBLIGATORIO)": "1",
-                                "SUBCENTRO DE COSTO (OBLIGATORIO)": "1",
-                                "DESCRIPCIÓN DE LA SECUENCIA": item["DESCRIPCIÓN DE LA SECUENCIA"],
-                                "TIPO / CRUZAR CON:": "",
-                                "NRO DEL COMPROBANTE / CRUZAR CON:": "",
-                                "VENCIMIENTO AÑO / CRUZAR CON:": "",
-                                "VENCIMIENTO MES / CRUZAR CON:": "",
-                                "VENCIMIENTO DÍA / CRUZAR CON:": "",
-                                "AÑO DE VENCIMIENTO": "",
-                                "MES DE VENCIMIENTO": "",
-                                "DÍA DE VENCIMIENTO": "",
-                                "CÓDIGO DE LA BODEGA (OBLIGATORIO)": "1",
-                                "CÓDIGO PRODUCTO (OBLIGATORIO)": item["CÓDIGO PRODUCTO (OBLIGATORIO)"],
-                                "CANTIDAD (OBLIGATORIO)": "1",
-                                "PRECIO UNITARIO": "",
-                                "NIT CRUZAR CON": "",
-                                "DESCUENTO/RECARGO 1": "",
-                                "PORCENTAJE": "",
-                                "DESCUENTO/RECARGO 2": "",
-                                "PORCENTAJE DESCUENTO/RECARGO 2": "",
-                                "DESCUENTO/RECARGO 3": "",
-                                "PORCENTAJE DESCUENTO/RECARGO 3": "",
-                                "VALOR DE LA SECUENCIA   (OBLIGATORIO)": item["VALOR DE LA SECUENCIA   (OBLIGATORIO)"]
-                            }
+                            # 1. Crear un diccionario con todas las 33 columnas vacías por defecto
+                            fila = {col: "" for col in COLUMNAS_SIIGO}
+                            
+                            # 2. Llenar solo los campos que SIIGO exige para la factura
+                            fila["TIPO DE COMPROBANTE (OBLIGATORIO)"] = "Factura"
+                            fila["CÓDIGO COMPROBANTE  (OBLIGATORIO)"] = "1"
+                            fila["VALOR DE LA SECUENCIA   (OBLIGATORIO)"] = item["VALOR DE LA SECUENCIA   (OBLIGATORIO)"]
+                            fila["AÑO DEL DOCUMENTO (OBLIGATORIO)"] = hoy.year
+                            fila["MES DEL DOCUMENTO (OBLIGATORIO)"] = hoy.month
+                            fila["DÍA DEL DOCUMENTO (OBLIGATORIO)"] = hoy.day
+                            fila["CÓDIGO DEL VENDEDOR"] = "1"
+                            fila["SECUENCIA (OBLIGATORIO)"] = secuencia
+                            fila["CENTRO DE COSTO (OBLIGATORIO)"] = "1"
+                            fila["SUBCENTRO DE COSTO (OBLIGATORIO)"] = "1"
+                            fila["NIT (OBLIGATORIO)"] = nit_cliente
+                            fila["SUCURSAL (OBLIGATORIO)"] = "0"
+                            fila["DESCRIPCIÓN DE LA SECUENCIA"] = item["DESCRIPCIÓN DE LA SECUENCIA"]
+                            fila["CÓDIGO PRODUCTO (OBLIGATORIO)"] = item["CÓDIGO PRODUCTO (OBLIGATORIO)"]
+                            fila["CANTIDAD (OBLIGATORIO)"] = "1"
+                            fila["CÓDIGO DE LA BODEGA (OBLIGATORIO)"] = "1"
+                            
                             filas_siigo.append(fila)
                             secuencia += 1
                             
@@ -135,7 +157,8 @@ if archivo_clientes is not None:
                             st.write(err)
                 
                 if filas_siigo:
-                    df_siigo = pd.DataFrame(filas_siigo)
+                    # Crear DataFrame respetando el orden de COLUMNAS_SIIGO
+                    df_siigo = pd.DataFrame(filas_siigo, columns=COLUMNAS_SIIGO)
                     
                     st.success("¡Archivo generado con éxito en el formato exacto de SIIGO!")
                     st.dataframe(df_siigo.head(10))
