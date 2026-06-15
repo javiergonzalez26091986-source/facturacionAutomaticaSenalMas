@@ -9,6 +9,29 @@ st.set_page_config(page_title="Facturación en Bloque - Señal Más", layout="wi
 st.title("Generador de Facturación en Bloque SIIGO 🚀")
 st.write("Sube la lista de clientes para generar automáticamente el archivo de movimiento contable.")
 
+# --- ESTILOS CSS ---
+st.markdown("""
+    <style>
+        #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
+        .stAppDeployButton {display:none;} div[data-testid="stToolbar"] { visibility: hidden !important; }
+        .main { background-color: #00233c; } .block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
+        h1, h3 { text-align: center !important; }
+        h1 { color: #ffffff; font-size: 2.2rem; margin-top: 0; font-weight: 700; }
+        h3 { color: #b0c4de; font-size: 1.1rem; font-weight: 400; margin-bottom: 2.5rem; }
+        .stMarkdown p { color: #ffffff; text-align: center; }
+        .stTextInput > div > div > input { background-color: #ffffff; color: #00233c; border-radius: 8px; border: 2px solid #00a896; }
+        .stForm { border: none; border-radius: 12px; background-color: #ffffff; padding: 2rem; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .stForm label, .stForm p { color: #00233c !important; font-weight: 600; text-align: left; }
+        div[data-testid="stFormSubmitButton"] button {
+            background-color: #00a896 !important; color: #ffffff !important; border-radius: 8px !important;
+            font-weight: 700 !important; font-size: 1.1rem !important; border: none !important;
+            padding: 0.7rem 2rem !important; width: 100% !important; box-shadow: 0 4px 10px rgba(0,168,150,0.3) !important;
+        }
+        div[data-testid="stFormSubmitButton"] button:hover { background-color: #02c3b1 !important; box-shadow: 0 6px 15px rgba(2,195,177,0.5) !important; }
+        .stMarkdown hr { border: 0; height: 1px; background: linear-gradient(to right, transparent, #b0c4de, transparent); margin-top: 3rem; }
+    </style>
+    """, unsafe_allow_html=True)
+
 # Función para calcular los rubros basados en el total
 def calcular_rubros(total):
     rubros = [
