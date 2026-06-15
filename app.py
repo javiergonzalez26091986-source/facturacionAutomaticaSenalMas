@@ -34,14 +34,17 @@ archivo_clientes = st.file_uploader("Sube el archivo 'Lista de Clientes - SEÑAL
 
 if archivo_clientes is not None:
     try:
-        # Leer el archivo. Se asume que los encabezados están en la fila correcta
+        # Leer el archivo. SIN saltar la primera fila para no perder los encabezados
         if archivo_clientes.name.endswith('.csv'):
-            df_clientes = pd.read_csv(archivo_clientes, skiprows=1) # Ajustar skiprows según tu CSV
+            df_clientes = pd.read_csv(archivo_clientes) 
         else:
-            df_clientes = pd.read_excel(archivo_clientes, skiprows=1)
+            df_clientes = pd.read_excel(archivo_clientes)
         
         # Limpiar columnas vacías e identificar las reales
         df_clientes = df_clientes.dropna(axis=1, how='all')
+        
+        # Buenas prácticas: Eliminar posibles espacios en blanco al inicio o final en los nombres de las columnas
+        df_clientes.columns = df_clientes.columns.str.strip()
         
         st.success("Archivo de clientes cargado correctamente.")
         
