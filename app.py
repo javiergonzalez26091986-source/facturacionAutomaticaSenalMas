@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import io
+import base64
 
 # Configuración de la página (Aquí se carga el favicon de la pestaña)
 st.set_page_config(
@@ -29,7 +30,7 @@ st.markdown("""
         /* 3. Estilos de contenedores y textos adaptados al fondo negro */
         .block-container { padding-top: 2rem; padding-bottom: 2rem; }
         h1, h3 { text-align: center !important; }
-        h1 { color: #ffffff !important; font-size: 2.2rem; margin-top: 0; font-weight: 700; }
+        h1 { color: #ffffff !important; font-size: 2.2rem; font-weight: 700; }
         h3 { color: #b0c4de !important; font-size: 1.1rem; font-weight: 400; margin-bottom: 2.5rem; }
         .stMarkdown p { color: #ffffff; text-align: center; }
         .stTextInput > div > div > input { background-color: #ffffff; color: #000000; border-radius: 8px; border: 2px solid #00a896; }
@@ -48,17 +49,27 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- CARGAR LOGO EN LA PÁGINA ---
-# Usamos proporciones [4, 1, 4] para crear una columna central estrecha
-col1, col2, col3 = st.columns([4, 1.5, 4])
-with col2:
-    try:
-        # Quitamos el ancho automático y le damos un valor fijo en píxeles
-        st.image("logoSenalMas.jpeg", width=100)
-    except Exception:
-        st.warning("No se encontró la imagen 'logoSenalMas.jpeg'. Verificar el nombre en Github.")
+# --- ENCABEZADO CON LOGO Y TÍTULO ALINEADOS ---
+try:
+    # Convertimos la imagen a código base64 para insertarla en HTML
+    with open("logoSenalMas.jpeg", "rb") as image_file:
+        encoded_string = base64.b64encode(image_file.read()).decode()
+    
+    # Inyectamos el HTML alineando la imagen y el título en la misma línea
+    st.markdown(
+        f"""
+        <div style="display: flex; align-items: center; justify-content: center; gap: 20px; margin-bottom: 10px;">
+            <img src="data:image/jpeg;base64,{encoded_string}" width="90" style="border-radius: 10px;">
+            <h1 style="margin: 0 !important; padding: 0 !important;">Generador de Facturación en Bloque SIIGO 🚀</h1>
+        </div>
+        """, 
+        unsafe_allow_html=True
+    )
+except Exception:
+    # Respaldo en caso de que la imagen no cargue
+    st.title("Generador de Facturación en Bloque SIIGO 🚀")
+    st.warning("No se encontró la imagen 'logoSenalMas.jpeg'. Verifica el nombre en Github.")
 
-st.title("Generador de Facturación en Bloque SIIGO 🚀")
 st.write("Sube la lista de clientes para generar automáticamente el archivo de movimiento contable.")
 
 # Función para calcular los rubros basados en el total
