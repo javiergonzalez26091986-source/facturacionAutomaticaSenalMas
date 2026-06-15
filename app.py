@@ -49,13 +49,14 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # --- CARGAR LOGO EN LA PÁGINA ---
-# Usamos columnas para centrar la imagen estéticamente
-col1, col2, col3 = st.columns([1, 1.5, 1])
+# Usamos proporciones [4, 1, 4] para crear una columna central estrecha
+col1, col2, col3 = st.columns([4, 1.5, 4])
 with col2:
     try:
-        st.image("logoSenalMas.jpeg", use_column_width=True)
+        # Quitamos el ancho automático y le damos un valor fijo en píxeles
+        st.image("logoSenalMas.jpeg", width=200)
     except Exception:
-        st.warning("No se encontró la imagen 'logoSenalMas.jpeg'. Verifica el nombre en Github.")
+        st.warning("No se encontró la imagen 'logoSenalMas.jpeg'. Verificar el nombre en Github.")
 
 st.title("Generador de Facturación en Bloque SIIGO 🚀")
 st.write("Sube la lista de clientes para generar automáticamente el archivo de movimiento contable.")
