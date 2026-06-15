@@ -54,7 +54,7 @@ col1, col2, col3 = st.columns([4, 1.5, 4])
 with col2:
     try:
         # Quitamos el ancho automático y le damos un valor fijo en píxeles
-        st.image("logoSenalMas.jpeg", width=200)
+        st.image("logoSenalMas.jpeg", width=100)
     except Exception:
         st.warning("No se encontró la imagen 'logoSenalMas.jpeg'. Verificar el nombre en Github.")
 
