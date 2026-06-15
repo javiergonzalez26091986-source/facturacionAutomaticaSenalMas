@@ -11,8 +11,6 @@ st.write("Sube la lista de clientes para generar automáticamente el archivo de 
 
 # Función para calcular los rubros basados en el total
 def calcular_rubros(total):
-    # Nota: Los porcentajes están extraídos de tu archivo CALCULO SEÑAL MAS.
-    # Ajusta estos factores si el total de la suma difiere del 100% de la factura.
     rubros = [
         {"producto": "41457001", "descripcion": "Servicio de transmisión de datos", "factor": 0.073117647},
         {"producto": "41457002", "descripcion": "Concesión de Equipos", "factor": 0.658058824},
@@ -34,57 +32,61 @@ archivo_clientes = st.file_uploader("Sube el archivo 'Lista de Clientes - SEÑAL
 
 if archivo_clientes is not None:
     try:
-        # Leer el archivo sin saltar la primera fila
+        # Leer el archivo
         if archivo_clientes.name.endswith('.csv'):
             df_clientes = pd.read_csv(archivo_clientes) 
         else:
             df_clientes = pd.read_excel(archivo_clientes)
         
-        # Limpiar columnas vacías e identificar las reales
+        # Limpiar columnas vacías y espacios en los nombres
         df_clientes = df_clientes.dropna(axis=1, how='all')
-        
-        # Buenas prácticas: Eliminar posibles espacios en blanco en los nombres de las columnas
         df_clientes.columns = df_clientes.columns.str.strip()
         
-        st.success("Archivo de clientes cargado correctamente.")
+        st.success("Archivo cargado correctamente.")
         
-        # Verificar que exista la columna 'Estado'
-        if 'Estado' in df_clientes.columns:
-            
-            # Limpiar espacios invisibles y convertir a mayúsculas para evitar errores tipográficos
+        # Validar que existan las columnas obligatorias
+        columnas_requeridas = ['Estado', 'Servicio', 'Valor']
+        columnas_faltantes = [col for col in columnas_requeridas if col not in df_clientes.columns]
+        
+        if not columnas_faltantes:
+            # Limpiar espacios invisibles y unificar mayúsculas en el Estado
             df_clientes['Estado'] = df_clientes['Estado'].astype(str).str.strip().str.upper()
             
-            # Filtrar clientes Activos Y Suspendidos
+            # Filtrar clientes Activos y Suspendidos
             estados_a_facturar = ['ACTIVO', 'SUSPENDIDO']
             df_a_facturar = df_clientes[df_clientes['Estado'].isin(estados_a_facturar)]
             
-            st.info(f"Se encontraron {len(df_a_facturar)} clientes (Activos y Suspendidos) para facturar.")
+            st.info(f"Procesando {len(df_a_facturar)} clientes (Activos y Suspendidos).")
             
-            st.write("---")
-            st.write("⚙️ **Configuración de Datos**")
-            
-            # Selector de columnas para evitar que el programa se confunda con celdas lejanas
-            col_nit = st.selectbox("Selecciona la columna del Cédula/NIT:", df_clientes.columns, index=list(df_clientes.columns).index('Servicio') if 'Servicio' in df_clientes.columns else 0)
-            col_precio = st.selectbox("Selecciona la columna del Valor a Facturar (Precio):", df_clientes.columns, index=len(df_clientes.columns)-1)
-            
-            if st.button("Procesar y Generar Archivo SIIGO"):
+            # Proceso automático (sin botones intermedios si lo deseas, o con botón para confirmar)
+            if st.button("Generar Archivo SIIGO"):
                 filas_siigo = []
                 hoy = datetime.now()
-                errores = [] # Lista para guardar los clientes problemáticos
+                errores = [] 
                 
-                # Iterar sobre cada cliente a facturar
-                for index, row in df_a_facturar.iterrows():
-                    nit_cliente = row[col_nit]
+                # Barra de progreso para feedback visual (opcional pero recomendado)
+                barra_progreso = st.progress(0)
+                total_clientes = len(df_a_facturar)
+                
+                for index, (i, row) in enumerate(df_a_facturar.iterrows()):
+                    nit_cliente = row['Servicio']
                     estado_cliente = row['Estado']
                     
                     try:
-                        # Extraer y asegurar que el precio sea numérico
-                        valor_celda = str(row[col_precio]).replace('$', '').replace(',', '').strip()
+                        # Limpiar y convertir el valor de la columna 'Valor'
+                        # Maneja casos donde la celda esté vacía (NaN)
+                        if pd.isna(row['Valor']):
+                            raise ValueError("Celda vacía")
+                            
+                        valor_celda = str(row['Valor']).replace('$', '').replace(',', '').strip()
                         precio_plan = float(valor_celda)
+                        
+                        if precio_plan <= 0:
+                            raise ValueError("Valor cero o negativo")
                         
                         desglose = calcular_rubros(precio_plan)
                         
-                        # Generar una fila para SIIGO por cada rubro
+                        # Generar filas para SIIGO
                         secuencia = 1
                         for item in desglose:
                             fila = {
@@ -110,24 +112,26 @@ if archivo_clientes is not None:
                             secuencia += 1
                             
                     except Exception as e:
-                        # Si falla un cliente, guardamos el error pero el programa continúa
-                        errores.append(f"Cédula/NIT {nit_cliente} (Estado: {estado_cliente}): revisa la celda de precio (Valor actual: {row[col_precio]})")
+                        # Capturar errores puntuales de clientes con datos corruptos
+                        errores.append(f"NIT {nit_cliente} (Estado: {estado_cliente}) - Valor inválido o vacío: '{row['Valor']}'")
+                    
+                    # Actualizar barra de progreso
+                    barra_progreso.progress((index + 1) / total_clientes)
                 
-                # Mostrar alertas si hubo clientes omitidos por error de formato en el precio
+                # Mostrar resultados
                 if errores:
-                    st.warning(f"⚠️ Se omitieron {len(errores)} clientes por formato inválido en su precio. Revisa sus datos:")
-                    with st.expander("Ver clientes omitidos"):
+                    st.warning(f"⚠️ Se omitieron {len(errores)} clientes por no tener un 'Valor' válido. Revisa sus datos en tu Excel:")
+                    with st.expander("Ver detalle de clientes omitidos"):
                         for err in errores:
                             st.write(err)
                 
-                # Crear DataFrame final si hay filas procesadas
                 if filas_siigo:
                     df_siigo = pd.DataFrame(filas_siigo)
                     
-                    st.write("Vista previa de los datos a exportar:")
+                    st.success("¡Archivo generado con éxito!")
                     st.dataframe(df_siigo.head(10))
                     
-                    # Exportar a Excel en memoria para descarga
+                    # Generar Excel en memoria
                     buffer = io.BytesIO()
                     with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
                         df_siigo.to_excel(writer, index=False, sheet_name='Movimiento')
@@ -136,13 +140,15 @@ if archivo_clientes is not None:
                         label="📥 Descargar Archivo para SIIGO",
                         data=buffer.getvalue(),
                         file_name=f"movimiento_siigo_{hoy.strftime('%Y%m%d')}.xlsx",
-                        mime="application/vnd.ms-excel"
+                        mime="application/vnd.ms-excel",
+                        type="primary" # Resalta el botón
                     )
                 else:
-                    st.error("No se generó ninguna fila válida. Verifica los datos de origen.")
+                    st.error("No se generó ninguna factura. Verifica los valores en tu archivo Excel.")
                     
         else:
-            st.error("No se encontró la columna 'Estado' en el archivo cargado. Verifica el formato.")
+            st.error(f"⚠️ Error de formato: Tu archivo de Excel debe contener obligatoriamente las columnas: **{', '.join(columnas_faltantes)}**.")
+            st.info("💡 Asegúrate de nombrar la columna del precio exactamente como 'Valor'.")
             
     except Exception as e:
         st.error(f"Hubo un error general procesando el archivo: {e}")
