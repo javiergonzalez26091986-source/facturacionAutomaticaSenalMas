@@ -3,34 +3,62 @@ import pandas as pd
 from datetime import datetime
 import io
 
-# Configuración de la página
-st.set_page_config(page_title="Facturación en Bloque - Señal Más", layout="wide")
+# Configuración de la página (Aquí se carga el favicon de la pestaña)
+st.set_page_config(
+    page_title="Facturación en Bloque - Señal Más", 
+    page_icon="logoSenalMas.ico", # Ícono de la pestaña
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
 
-st.title("Generador de Facturación en Bloque SIIGO 🚀")
-st.write("Sube la lista de clientes para generar automáticamente el archivo de movimiento contable.")
-
-# --- ESTILOS CSS ---
+# --- ESTILOS CSS CORREGIDOS ---
 st.markdown("""
     <style>
-        #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
-        .stAppDeployButton {display:none;} div[data-testid="stToolbar"] { visibility: hidden !important; }
-        .main { background-color: #00233c; } .block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
+        /* 1. Ocultar Header superior, menú de hamburguesa, botón Deploy y Footer */
+        [data-testid="stHeader"] {visibility: hidden !important; display: none !important;}
+        [data-testid="stToolbar"] {visibility: hidden !important; display: none !important;}
+        [data-testid="stDecoration"] {visibility: hidden !important; display: none !important;}
+        footer {visibility: hidden !important; display: none !important;}
+        #MainMenu {visibility: hidden !important; display: none !important;}
+
+        /* 2. Forzar el color de fondo NEGRO para TODA la pantalla */
+        .stApp {
+            background-color: #000000 !important;
+        }
+
+        /* 3. Estilos de contenedores y textos adaptados al fondo negro */
+        .block-container { padding-top: 2rem; padding-bottom: 2rem; }
         h1, h3 { text-align: center !important; }
-        h1 { color: #ffffff; font-size: 2.2rem; margin-top: 0; font-weight: 700; }
-        h3 { color: #b0c4de; font-size: 1.1rem; font-weight: 400; margin-bottom: 2.5rem; }
+        h1 { color: #ffffff !important; font-size: 2.2rem; margin-top: 0; font-weight: 700; }
+        h3 { color: #b0c4de !important; font-size: 1.1rem; font-weight: 400; margin-bottom: 2.5rem; }
         .stMarkdown p { color: #ffffff; text-align: center; }
-        .stTextInput > div > div > input { background-color: #ffffff; color: #00233c; border-radius: 8px; border: 2px solid #00a896; }
-        .stForm { border: none; border-radius: 12px; background-color: #ffffff; padding: 2rem; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
-        .stForm label, .stForm p { color: #00233c !important; font-weight: 600; text-align: left; }
-        div[data-testid="stFormSubmitButton"] button {
+        .stTextInput > div > div > input { background-color: #ffffff; color: #000000; border-radius: 8px; border: 2px solid #00a896; }
+        .stForm { border: none; border-radius: 12px; background-color: #1a1a1a; padding: 2rem; box-shadow: 0 4px 15px rgba(255,255,255,0.05); }
+        .stForm label, .stForm p { color: #ffffff !important; font-weight: 600; text-align: left; }
+        
+        /* 4. Estilos de los botones */
+        div[data-testid="stFormSubmitButton"] button, div[data-testid="stDownloadButton"] button {
             background-color: #00a896 !important; color: #ffffff !important; border-radius: 8px !important;
             font-weight: 700 !important; font-size: 1.1rem !important; border: none !important;
             padding: 0.7rem 2rem !important; width: 100% !important; box-shadow: 0 4px 10px rgba(0,168,150,0.3) !important;
         }
-        div[data-testid="stFormSubmitButton"] button:hover { background-color: #02c3b1 !important; box-shadow: 0 6px 15px rgba(2,195,177,0.5) !important; }
-        .stMarkdown hr { border: 0; height: 1px; background: linear-gradient(to right, transparent, #b0c4de, transparent); margin-top: 3rem; }
+        div[data-testid="stFormSubmitButton"] button:hover, div[data-testid="stDownloadButton"] button:hover { 
+            background-color: #02c3b1 !important; box-shadow: 0 6px 15px rgba(2,195,177,0.5) !important; 
+        }
     </style>
     """, unsafe_allow_html=True)
+
+# --- CARGAR LOGO EN LA PÁGINA ---
+# Usamos columnas para centrar la imagen estéticamente
+col1, col2, col3 = st.columns([1, 1.5, 1])
+with col2:
+    try:
+        st.image("logoSenalMas.jpeg", use_column_width=True)
+    except Exception:
+        st.warning("No se encontró la imagen 'logoSenalMas.jpeg'. Verifica el nombre en Github.")
+
+st.title("Generador de Facturación en Bloque SIIGO 🚀")
+st.write("Sube la lista de clientes para generar automáticamente el archivo de movimiento contable.")
 
 # Función para calcular los rubros basados en el total
 def calcular_rubros(total):
@@ -46,7 +74,6 @@ def calcular_rubros(total):
         resultados.append({
             "CÓDIGO PRODUCTO (OBLIGATORIO)": r["producto"],
             "DESCRIPCIÓN DE LA SECUENCIA": r["descripcion"],
-            # Nota: Respetamos los 3 espacios de la plantilla de SIIGO
             "VALOR DE LA SECUENCIA   (OBLIGATORIO)": round(total * r["factor"], 2) 
         })
     return resultados
@@ -144,10 +171,8 @@ if archivo_clientes is not None:
                         
                         secuencia = 1
                         for item in desglose:
-                            # 1. Crear un diccionario con todas las 33 columnas vacías por defecto
                             fila = {col: "" for col in COLUMNAS_SIIGO}
                             
-                            # 2. Llenar solo los campos que SIIGO exige para la factura
                             fila["TIPO DE COMPROBANTE (OBLIGATORIO)"] = "Factura"
                             fila["CÓDIGO COMPROBANTE  (OBLIGATORIO)"] = "1"
                             fila["VALOR DE LA SECUENCIA   (OBLIGATORIO)"] = item["VALOR DE LA SECUENCIA   (OBLIGATORIO)"]
@@ -180,7 +205,6 @@ if archivo_clientes is not None:
                             st.write(err)
                 
                 if filas_siigo:
-                    # Crear DataFrame respetando el orden de COLUMNAS_SIIGO
                     df_siigo = pd.DataFrame(filas_siigo, columns=COLUMNAS_SIIGO)
                     
                     st.success("¡Archivo generado con éxito en el formato exacto de SIIGO!")
