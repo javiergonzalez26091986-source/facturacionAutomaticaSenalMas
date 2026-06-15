@@ -49,7 +49,6 @@ if archivo_clientes is not None:
         columnas_faltantes = [col for col in columnas_requeridas if col not in df_clientes.columns]
         
         if not columnas_faltantes:
-            # Limpiar espacios invisibles y unificar mayúsculas en el Estado
             df_clientes['Estado'] = df_clientes['Estado'].astype(str).str.strip().str.upper()
             
             # Filtrar clientes Activos y Suspendidos
@@ -58,13 +57,11 @@ if archivo_clientes is not None:
             
             st.info(f"Procesando {len(df_a_facturar)} clientes (Activos y Suspendidos).")
             
-            # Proceso automático (sin botones intermedios si lo deseas, o con botón para confirmar)
             if st.button("Generar Archivo SIIGO"):
                 filas_siigo = []
                 hoy = datetime.now()
                 errores = [] 
                 
-                # Barra de progreso para feedback visual (opcional pero recomendado)
                 barra_progreso = st.progress(0)
                 total_clientes = len(df_a_facturar)
                 
@@ -73,8 +70,6 @@ if archivo_clientes is not None:
                     estado_cliente = row['Estado']
                     
                     try:
-                        # Limpiar y convertir el valor de la columna 'Valor'
-                        # Maneja casos donde la celda esté vacía (NaN)
                         if pd.isna(row['Valor']):
                             raise ValueError("Celda vacía")
                             
@@ -86,41 +81,55 @@ if archivo_clientes is not None:
                         
                         desglose = calcular_rubros(precio_plan)
                         
-                        # Generar filas para SIIGO
+                        # ESTRUCTURA EXACTA DE LA PLANTILLA SIIGO (34 COLUMNAS)
                         secuencia = 1
                         for item in desglose:
                             fila = {
-                                "TIPO DE COMPROBANTE (OBLIGATORIO)": "Factura", 
-                                "CÓDIGO COMPROBANTE  (OBLIGATORIO)": "1", 
-                                "NÚMERO DE DOCUMENTO": "", 
-                                "VALOR DE LA SECUENCIA   (OBLIGATORIO)": item["VALOR DE LA SECUENCIA   (OBLIGATORIO)"],
+                                "TIPO DE COMPROBANTE (OBLIGATORIO)": "Factura", # Revisa si SIIGO acepta "Factura" aquí o requiere un código contable
+                                "CÓDIGO COMPROBANTE  (OBLIGATORIO)": "1",
+                                "NÚMERO DE DOCUMENTO": "",
                                 "AÑO DEL DOCUMENTO (OBLIGATORIO)": hoy.year,
                                 "MES DEL DOCUMENTO (OBLIGATORIO)": hoy.month,
                                 "DÍA DEL DOCUMENTO (OBLIGATORIO)": hoy.day,
-                                "CÓDIGO DEL VENDEDOR": "1", 
-                                "SECUENCIA (OBLIGATORIO)": secuencia,
-                                "CENTRO DE COSTO (OBLIGATORIO)": "1", 
-                                "SUBCENTRO DE COSTO (OBLIGATORIO)": "1", 
                                 "NIT (OBLIGATORIO)": nit_cliente,
-                                "SUCURSAL (OBLIGATORIO)": "0", 
+                                "SUCURSAL (OBLIGATORIO)": "0",
+                                "CÓDIGO DEL VENDEDOR": "1",
+                                "SECUENCIA (OBLIGATORIO)": secuencia,
+                                "CUENTA CONTABLE (OBLIGATORIO)": "", # Vacío porque usarás Producto
+                                "CENTRO DE COSTO (OBLIGATORIO)": "1",
+                                "SUBCENTRO DE COSTO (OBLIGATORIO)": "1",
                                 "DESCRIPCIÓN DE LA SECUENCIA": item["DESCRIPCIÓN DE LA SECUENCIA"],
+                                "TIPO / CRUZAR CON:": "",
+                                "NRO DEL COMPROBANTE / CRUZAR CON:": "",
+                                "VENCIMIENTO AÑO / CRUZAR CON:": "",
+                                "VENCIMIENTO MES / CRUZAR CON:": "",
+                                "VENCIMIENTO DÍA / CRUZAR CON:": "",
+                                "AÑO DE VENCIMIENTO": "",
+                                "MES DE VENCIMIENTO": "",
+                                "DÍA DE VENCIMIENTO": "",
+                                "CÓDIGO DE LA BODEGA (OBLIGATORIO)": "1",
                                 "CÓDIGO PRODUCTO (OBLIGATORIO)": item["CÓDIGO PRODUCTO (OBLIGATORIO)"],
                                 "CANTIDAD (OBLIGATORIO)": "1",
-                                "CÓDIGO DE LA BODEGA (OBLIGATORIO)": "1"
+                                "PRECIO UNITARIO": "",
+                                "NIT CRUZAR CON": "",
+                                "DESCUENTO/RECARGO 1": "",
+                                "PORCENTAJE": "",
+                                "DESCUENTO/RECARGO 2": "",
+                                "PORCENTAJE DESCUENTO/RECARGO 2": "",
+                                "DESCUENTO/RECARGO 3": "",
+                                "PORCENTAJE DESCUENTO/RECARGO 3": "",
+                                "VALOR DE LA SECUENCIA   (OBLIGATORIO)": item["VALOR DE LA SECUENCIA   (OBLIGATORIO)"]
                             }
                             filas_siigo.append(fila)
                             secuencia += 1
                             
                     except Exception as e:
-                        # Capturar errores puntuales de clientes con datos corruptos
                         errores.append(f"NIT {nit_cliente} (Estado: {estado_cliente}) - Valor inválido o vacío: '{row['Valor']}'")
                     
-                    # Actualizar barra de progreso
                     barra_progreso.progress((index + 1) / total_clientes)
                 
-                # Mostrar resultados
                 if errores:
-                    st.warning(f"⚠️ Se omitieron {len(errores)} clientes por no tener un 'Valor' válido. Revisa sus datos en tu Excel:")
+                    st.warning(f"⚠️ Se omitieron {len(errores)} clientes por no tener un 'Valor' válido:")
                     with st.expander("Ver detalle de clientes omitidos"):
                         for err in errores:
                             st.write(err)
@@ -128,20 +137,19 @@ if archivo_clientes is not None:
                 if filas_siigo:
                     df_siigo = pd.DataFrame(filas_siigo)
                     
-                    st.success("¡Archivo generado con éxito!")
+                    st.success("¡Archivo generado con éxito en el formato exacto de SIIGO!")
                     st.dataframe(df_siigo.head(10))
                     
-                    # Generar Excel en memoria
                     buffer = io.BytesIO()
                     with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
                         df_siigo.to_excel(writer, index=False, sheet_name='Movimiento')
                     
                     st.download_button(
-                        label="📥 Descargar Archivo para SIIGO",
+                        label="📥 Descargar Archivo 100% Compatible",
                         data=buffer.getvalue(),
-                        file_name=f"movimiento_siigo_{hoy.strftime('%Y%m%d')}.xlsx",
+                        file_name=f"movimiento_siigo_completo_{hoy.strftime('%Y%m%d')}.xlsx",
                         mime="application/vnd.ms-excel",
-                        type="primary" # Resalta el botón
+                        type="primary"
                     )
                 else:
                     st.error("No se generó ninguna factura. Verifica los valores en tu archivo Excel.")
