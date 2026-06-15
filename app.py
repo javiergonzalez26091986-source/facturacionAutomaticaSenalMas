@@ -12,9 +12,16 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- ESTILOS CSS CORREGIDOS ---
+# --- ESTILOS CSS BLINDADOS CONTRA EL MODO OSCURO ---
 st.markdown("""
     <style>
+        /* ATAQUE A LAS VARIABLES GLOBALES DE STREAMLIT */
+        :root {
+            --text-color: #00233c !important;
+            --background-color: #ffffff !important;
+            --secondary-background-color: #f4f6f9 !important;
+        }
+
         /* 1. Ocultar Header superior, menú de hamburguesa, botón Deploy y Footer */
         [data-testid="stHeader"] {visibility: hidden !important; display: none !important;}
         [data-testid="stToolbar"] {visibility: hidden !important; display: none !important;}
@@ -22,30 +29,99 @@ st.markdown("""
         footer {visibility: hidden !important; display: none !important;}
         #MainMenu {visibility: hidden !important; display: none !important;}
 
-        /* 2. Forzar el color de fondo NEGRO para TODA la pantalla */
-        .stApp {
-            background-color: #000000 !important;
+        /* 2. Forzar fondo completamente blanco para toda la web app */
+        .stApp, .main { background-color: #ffffff !important; } 
+        .block-container { padding-top: 2rem; padding-bottom: 2rem; }
+        
+        /* 3. Textos principales en el azul corporativo original para legibilidad */
+        h1, h1 *, div[data-testid="stMarkdownContainer"] h1 { 
+            color: #00233c !important; 
+            text-align: center !important;
+            font-size: 2.2rem !important; 
+            margin-top: 0 !important; 
+            font-weight: 700 !important; 
+        }
+        
+        h3, h3 *, div[data-testid="stMarkdownContainer"] h3 { 
+            color: #00a896 !important; 
+            text-align: center !important;
+            font-size: 1.1rem !important; 
+            font-weight: 600 !important; 
+            margin-bottom: 2.5rem !important; 
+        }
+        
+        /* Etiquetas y descripciones generales */
+        label, label p, div[data-testid="stWidgetLabel"] p, p, .stMarkdown p { 
+            color: #00233c !important; 
+            font-weight: 600 !important;
         }
 
-        /* 3. Estilos de contenedores y textos adaptados al fondo negro */
-        .block-container { padding-top: 2rem; padding-bottom: 2rem; }
-        h1, h3 { text-align: center !important; }
-        h1 { color: #ffffff !important; font-size: 2.2rem; font-weight: 700; }
-        h3 { color: #b0c4de !important; font-size: 1.1rem; font-weight: 400; margin-bottom: 2.5rem; }
-        .stMarkdown p { color: #ffffff; text-align: center; }
-        .stTextInput > div > div > input { background-color: #ffffff; color: #000000; border-radius: 8px; border: 2px solid #00a896; }
-        .stForm { border: none; border-radius: 12px; background-color: #1a1a1a; padding: 2rem; box-shadow: 0 4px 15px rgba(255,255,255,0.05); }
-        .stForm label, .stForm p { color: #ffffff !important; font-weight: 600; text-align: left; }
+        /* 4. Subidor de archivos (área donde se arrastra) blindado */
+        [data-testid="stFileUploaderDropzone"] {
+            background-color: #f4f6f9 !important;
+            border: 2px dashed #00a896 !important;
+            border-radius: 8px !important;
+        }
+        [data-testid="stFileUploaderDropzone"] * {
+            color: #00233c !important;
+            -webkit-text-fill-color: #00233c !important;
+        }
+        [data-testid="stFileUploader"] button {
+            background-color: #ffffff !important;
+            color: #00233c !important;
+            border: 1px solid #00a896 !important;
+        }
+        [data-testid="stFileUploader"] button svg {
+            fill: #00233c !important;
+        }
         
-        /* 4. Estilos de los botones */
-        div[data-testid="stFormSubmitButton"] button, div[data-testid="stDownloadButton"] button {
+        /* RECUADRO DEL ARCHIVO CARGADO: Blindaje total */
+        [data-testid="stUploadedFile"] {
+            background-color: #f4f6f9 !important;
+            border: 1px solid #00a896 !important;
+            border-radius: 8px !important;
+            box-shadow: none !important;
+        }
+        [data-testid="stUploadedFile"] * {
+            color: #00233c !important;
+            -webkit-text-fill-color: #00233c !important;
+            background-color: transparent !important; /* Quita fondos negros ocultos */
+        }
+        [data-testid="stUploadedFile"] svg {
+            fill: #00233c !important;
+        }
+
+        /* 5. Botones generales (Generar, Descargar) */
+        div[data-testid="stFormSubmitButton"] button, 
+        .stButton button, 
+        .stDownloadButton button,
+        div[data-testid="stDownloadButton"] button {
             background-color: #00a896 !important; color: #ffffff !important; border-radius: 8px !important;
             font-weight: 700 !important; font-size: 1.1rem !important; border: none !important;
             padding: 0.7rem 2rem !important; width: 100% !important; box-shadow: 0 4px 10px rgba(0,168,150,0.3) !important;
         }
-        div[data-testid="stFormSubmitButton"] button:hover, div[data-testid="stDownloadButton"] button:hover { 
+        .stButton button:hover, .stDownloadButton button:hover, div[data-testid="stDownloadButton"] button:hover { 
             background-color: #02c3b1 !important; box-shadow: 0 6px 15px rgba(2,195,177,0.5) !important; 
         }
+        .stButton button *, .stDownloadButton button * {
+            color: #ffffff !important;
+            -webkit-text-fill-color: #ffffff !important;
+        }
+        
+        /* 6. Evitar fondo oscuro en la tabla de datos previsualizada */
+        .stDataFrame { background-color: transparent !important; }
+        
+        /* 7. Expansores (Expanders) */
+        [data-testid="stExpander"] {
+            background-color: #f4f6f9 !important;
+            border: 1px solid #00a896 !important;
+            border-radius: 8px !important;
+        }
+        [data-testid="stExpander"] * {
+            color: #00233c !important;
+        }
+        
+        .stMarkdown hr { border: 0; height: 1px; background: linear-gradient(to right, transparent, #00a896, transparent); margin-top: 3rem; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -70,7 +146,7 @@ except Exception:
     st.title("Generador de Facturación en Bloque SIIGO 🚀")
     st.warning("No se encontró la imagen 'logoSenalMas.jpeg'. Verifica el nombre en Github.")
 
-st.write("Sube la lista de clientes para generar automáticamente el archivo de movimiento contable.")
+st.markdown("<p style='text-align: center;'>Sube la lista de clientes para generar automáticamente el archivo de movimiento contable.</p>", unsafe_allow_html=True)
 
 # Función para calcular los rubros basados en el total
 def calcular_rubros(total):
