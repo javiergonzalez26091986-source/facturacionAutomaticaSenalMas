@@ -34,7 +34,7 @@ archivo_clientes = st.file_uploader("Sube el archivo 'Lista de Clientes - SEÑAL
 
 if archivo_clientes is not None:
     try:
-        # Leer el archivo. SIN saltar la primera fila para no perder los encabezados
+        # Leer el archivo sin saltar la primera fila
         if archivo_clientes.name.endswith('.csv'):
             df_clientes = pd.read_csv(archivo_clientes) 
         else:
@@ -43,74 +43,106 @@ if archivo_clientes is not None:
         # Limpiar columnas vacías e identificar las reales
         df_clientes = df_clientes.dropna(axis=1, how='all')
         
-        # Buenas prácticas: Eliminar posibles espacios en blanco al inicio o final en los nombres de las columnas
+        # Buenas prácticas: Eliminar posibles espacios en blanco en los nombres de las columnas
         df_clientes.columns = df_clientes.columns.str.strip()
         
         st.success("Archivo de clientes cargado correctamente.")
         
-        # Filtrar solo clientes Activos
+        # Verificar que exista la columna 'Estado'
         if 'Estado' in df_clientes.columns:
-            df_activos = df_clientes[df_clientes['Estado'].str.upper() == 'ACTIVO']
-            st.info(f"Se encontraron {len(df_activos)} clientes activos para facturar.")
+            
+            # Limpiar espacios invisibles y convertir a mayúsculas para evitar errores tipográficos
+            df_clientes['Estado'] = df_clientes['Estado'].astype(str).str.strip().str.upper()
+            
+            # Filtrar clientes Activos Y Suspendidos
+            estados_a_facturar = ['ACTIVO', 'SUSPENDIDO']
+            df_a_facturar = df_clientes[df_clientes['Estado'].isin(estados_a_facturar)]
+            
+            st.info(f"Se encontraron {len(df_a_facturar)} clientes (Activos y Suspendidos) para facturar.")
+            
+            st.write("---")
+            st.write("⚙️ **Configuración de Datos**")
+            
+            # Selector de columnas para evitar que el programa se confunda con celdas lejanas
+            col_nit = st.selectbox("Selecciona la columna del Cédula/NIT:", df_clientes.columns, index=list(df_clientes.columns).index('Servicio') if 'Servicio' in df_clientes.columns else 0)
+            col_precio = st.selectbox("Selecciona la columna del Valor a Facturar (Precio):", df_clientes.columns, index=len(df_clientes.columns)-1)
             
             if st.button("Procesar y Generar Archivo SIIGO"):
                 filas_siigo = []
                 hoy = datetime.now()
+                errores = [] # Lista para guardar los clientes problemáticos
                 
-                # Iterar sobre cada cliente activo
-                for index, row in df_activos.iterrows():
-                    # Asegurarse de que el NIT y el Precio existan
-                    nit_cliente = row['Servicio'] # En tu archivo, la cédula está en la columna 'Servicio'
-                    precio_plan = float(row.iloc[-1]) # Asumiendo que el precio es la última columna
+                # Iterar sobre cada cliente a facturar
+                for index, row in df_a_facturar.iterrows():
+                    nit_cliente = row[col_nit]
+                    estado_cliente = row['Estado']
                     
-                    # Calcular la división de valores
-                    desglose = calcular_rubros(precio_plan)
+                    try:
+                        # Extraer y asegurar que el precio sea numérico
+                        valor_celda = str(row[col_precio]).replace('$', '').replace(',', '').strip()
+                        precio_plan = float(valor_celda)
+                        
+                        desglose = calcular_rubros(precio_plan)
+                        
+                        # Generar una fila para SIIGO por cada rubro
+                        secuencia = 1
+                        for item in desglose:
+                            fila = {
+                                "TIPO DE COMPROBANTE (OBLIGATORIO)": "Factura", 
+                                "CÓDIGO COMPROBANTE  (OBLIGATORIO)": "1", 
+                                "NÚMERO DE DOCUMENTO": "", 
+                                "VALOR DE LA SECUENCIA   (OBLIGATORIO)": item["VALOR DE LA SECUENCIA   (OBLIGATORIO)"],
+                                "AÑO DEL DOCUMENTO (OBLIGATORIO)": hoy.year,
+                                "MES DEL DOCUMENTO (OBLIGATORIO)": hoy.month,
+                                "DÍA DEL DOCUMENTO (OBLIGATORIO)": hoy.day,
+                                "CÓDIGO DEL VENDEDOR": "1", 
+                                "SECUENCIA (OBLIGATORIO)": secuencia,
+                                "CENTRO DE COSTO (OBLIGATORIO)": "1", 
+                                "SUBCENTRO DE COSTO (OBLIGATORIO)": "1", 
+                                "NIT (OBLIGATORIO)": nit_cliente,
+                                "SUCURSAL (OBLIGATORIO)": "0", 
+                                "DESCRIPCIÓN DE LA SECUENCIA": item["DESCRIPCIÓN DE LA SECUENCIA"],
+                                "CÓDIGO PRODUCTO (OBLIGATORIO)": item["CÓDIGO PRODUCTO (OBLIGATORIO)"],
+                                "CANTIDAD (OBLIGATORIO)": "1",
+                                "CÓDIGO DE LA BODEGA (OBLIGATORIO)": "1"
+                            }
+                            filas_siigo.append(fila)
+                            secuencia += 1
+                            
+                    except Exception as e:
+                        # Si falla un cliente, guardamos el error pero el programa continúa
+                        errores.append(f"Cédula/NIT {nit_cliente} (Estado: {estado_cliente}): revisa la celda de precio (Valor actual: {row[col_precio]})")
+                
+                # Mostrar alertas si hubo clientes omitidos por error de formato en el precio
+                if errores:
+                    st.warning(f"⚠️ Se omitieron {len(errores)} clientes por formato inválido en su precio. Revisa sus datos:")
+                    with st.expander("Ver clientes omitidos"):
+                        for err in errores:
+                            st.write(err)
+                
+                # Crear DataFrame final si hay filas procesadas
+                if filas_siigo:
+                    df_siigo = pd.DataFrame(filas_siigo)
                     
-                    # Generar una fila para SIIGO por cada rubro
-                    secuencia = 1
-                    for item in desglose:
-                        fila = {
-                            "TIPO DE COMPROBANTE (OBLIGATORIO)": "Factura", # Ajustar según SIIGO
-                            "CÓDIGO COMPROBANTE  (OBLIGATORIO)": "1", # Ajustar según SIIGO
-                            "NÚMERO DE DOCUMENTO": "", # SIIGO lo suele autogenerar si va vacío
-                            "VALOR DE LA SECUENCIA   (OBLIGATORIO)": item["VALOR DE LA SECUENCIA   (OBLIGATORIO)"],
-                            "AÑO DEL DOCUMENTO (OBLIGATORIO)": hoy.year,
-                            "MES DEL DOCUMENTO (OBLIGATORIO)": hoy.month,
-                            "DÍA DEL DOCUMENTO (OBLIGATORIO)": hoy.day,
-                            "CÓDIGO DEL VENDEDOR": "1", 
-                            "SECUENCIA (OBLIGATORIO)": secuencia,
-                            "CENTRO DE COSTO (OBLIGATORIO)": "1", 
-                            "SUBCENTRO DE COSTO (OBLIGATORIO)": "1", 
-                            "NIT (OBLIGATORIO)": nit_cliente,
-                            "SUCURSAL (OBLIGATORIO)": "0", 
-                            "DESCRIPCIÓN DE LA SECUENCIA": item["DESCRIPCIÓN DE LA SECUENCIA"],
-                            "CÓDIGO PRODUCTO (OBLIGATORIO)": item["CÓDIGO PRODUCTO (OBLIGATORIO)"],
-                            "CANTIDAD (OBLIGATORIO)": "1",
-                            "CÓDIGO DE LA BODEGA (OBLIGATORIO)": "1" # Ajustar si manejan bodegas
-                        }
-                        filas_siigo.append(fila)
-                        secuencia += 1
-                
-                # Crear DataFrame final
-                df_siigo = pd.DataFrame(filas_siigo)
-                
-                # Mostrar vista previa
-                st.write("Vista previa de los datos a exportar:")
-                st.dataframe(df_siigo.head(10))
-                
-                # Exportar a Excel en memoria para descarga
-                buffer = io.BytesIO()
-                with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-                    df_siigo.to_excel(writer, index=False, sheet_name='Movimiento')
-                
-                st.download_button(
-                    label="📥 Descargar Archivo para SIIGO",
-                    data=buffer.getvalue(),
-                    file_name=f"movimiento_siigo_{hoy.strftime('%Y%m%d')}.xlsx",
-                    mime="application/vnd.ms-excel"
-                )
+                    st.write("Vista previa de los datos a exportar:")
+                    st.dataframe(df_siigo.head(10))
+                    
+                    # Exportar a Excel en memoria para descarga
+                    buffer = io.BytesIO()
+                    with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+                        df_siigo.to_excel(writer, index=False, sheet_name='Movimiento')
+                    
+                    st.download_button(
+                        label="📥 Descargar Archivo para SIIGO",
+                        data=buffer.getvalue(),
+                        file_name=f"movimiento_siigo_{hoy.strftime('%Y%m%d')}.xlsx",
+                        mime="application/vnd.ms-excel"
+                    )
+                else:
+                    st.error("No se generó ninguna fila válida. Verifica los datos de origen.")
+                    
         else:
             st.error("No se encontró la columna 'Estado' en el archivo cargado. Verifica el formato.")
             
     except Exception as e:
-        st.error(f"Hubo un error procesando el archivo: {e}")
+        st.error(f"Hubo un error general procesando el archivo: {e}")
