@@ -151,10 +151,10 @@ st.markdown("<p style='text-align: center;'>Sube la lista de clientes para gener
 # Función para calcular los rubros basados en el total
 def calcular_rubros(total):
     rubros = [
-        {"producto": "41457001", "descripcion": "Servicio de transmisión de datos", "factor": 0.073117647},
-        {"producto": "41457002", "descripcion": "Concesión de Equipos", "factor": 0.658058824},
-        {"producto": "28150501", "descripcion": "Ingresos Recibidos para Terceros", "factor": 0.176470588},
-        {"producto": "24080101", "descripcion": "Iva", "factor": 0.033529412}
+        {"producto": "41457001", "descripcion": "INTERNET HOGAR", "factor": 0.073117647},
+        {"producto": "41457002", "descripcion": "CONCESION DE EQUIPOS", "factor": 0.658058824},
+        {"producto": "41459501", "descripcion": "TELEVISION SUBCONTRATADAs", "factor": 0.176470588},
+        {"producto": "24080101", "descripcion": "IVA GENERADO EN VENTAS DEL 19%", "factor": 0.033529412}
     ]
     
     resultados = []
