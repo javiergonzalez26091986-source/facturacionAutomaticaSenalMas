@@ -264,8 +264,8 @@ if archivo_clientes is not None:
                         for item in desglose:
                             fila = {col: "" for col in COLUMNAS_SIIGO}
                             
-                            fila["TIPO DE COMPROBANTE (OBLIGATORIO)"] = "Factura"
-                            fila["CÓDIGO COMPROBANTE  (OBLIGATORIO)"] = "1"
+                            fila["TIPO DE COMPROBANTE (OBLIGATORIO)"] = "F"
+                            fila["CÓDIGO COMPROBANTE  (OBLIGATORIO)"] = "6"
                             fila["VALOR DE LA SECUENCIA   (OBLIGATORIO)"] = item["VALOR DE LA SECUENCIA   (OBLIGATORIO)"]
                             fila["AÑO DEL DOCUMENTO (OBLIGATORIO)"] = hoy.year
                             fila["MES DEL DOCUMENTO (OBLIGATORIO)"] = hoy.month
