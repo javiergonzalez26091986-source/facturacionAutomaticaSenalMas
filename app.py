@@ -303,7 +303,21 @@ if archivo_clientes is not None:
                     
                     buffer = io.BytesIO()
                     with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-                        df_siigo.to_excel(writer, index=False, sheet_name='Movimiento')
+                        # 1. Desplazamos los datos de Pandas para que empiecen en la fila 5 (índice 4 de Excel)
+                        df_siigo.to_excel(writer, index=False, sheet_name='Movimiento', startrow=4)
+                        
+                        # 2. Accedemos de forma directa a la hoja de cálculo de xlsxwriter
+                        workbook = writer.book
+                        worksheet = writer.sheets['Movimiento']
+                        
+                        # 3. Inyectamos los textos requeridos por la plantilla en las filas indicadas
+                        # Fila 1 de Excel (Índice 0): Nombre de la empresa
+                        worksheet.write(0, 0, "EMPRESA DE INTERNET Y TELEVISION SEÑAL MAS S.A.S.")
+                        
+                        # Fila 2 de Excel (Índice 1): Nombre del modelo
+                        worksheet.write(1, 0, "MODELO PARA LA IMPORTACION DE MOVIMIENTO CONTABLE - MODELO BÁSICO")
+                        
+                        # Nota: Las filas 3 y 4 (índices 2 y 3) no se tocan, por lo que permanecen vacías automáticamente.
                     
                     st.download_button(
                         label="📥 Descargar Archivo 100% Compatible",
