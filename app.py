@@ -127,11 +127,9 @@ st.markdown("""
 
 # --- ENCABEZADO CON LOGO Y TÍTULO ALINEADOS ---
 try:
-    # Convertimos la imagen a código base64 para insertarla en HTML
     with open("logoSenalMas.jpeg", "rb") as image_file:
         encoded_string = base64.b64encode(image_file.read()).decode()
     
-    # Inyectamos el HTML alineando la imagen y el título en la misma línea
     st.markdown(
         f"""
         <div style="display: flex; align-items: center; justify-content: center; gap: 20px; margin-bottom: 10px;">
@@ -142,95 +140,96 @@ try:
         unsafe_allow_html=True
     )
 except Exception:
-    # Respaldo en caso de que la imagen no cargue
     st.title("Generador de Facturación en Bloque SIIGO 🚀")
     st.warning("No se encontró la imagen 'logoSenalMas.jpeg'. Verifica el nombre en Github.")
 
-st.markdown("<p style='text-align: center;'>Sube la lista de clientes para generar automáticamente el archivo de movimiento contable.</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center;'>Sube la lista de clientes para generar automáticamente el archivo de movimiento contable (Modelo General).</p>", unsafe_allow_html=True)
 
-# Función para calcular los rubros basados en el total
+# --- 1. FUNCIÓN DE RUBROS (Adaptada al Modelo General) ---
 def calcular_rubros(total):
+    # Base del IVA (Se extrae del valor del servicio de TV)
+    base_iva_tv = round(total * 0.176470588, 2)
+    
     rubros = [
-        {"producto": "1001", "descripcion": "INTERNET HOGAR", "factor": 0.073117647, "cc": "1", "scc": "1001"},
-        {"producto": "2001", "descripcion": "CONCESION DE EQUIPOS", "factor": 0.658058824, "cc": "2", "scc": "2001"},
-        {"producto": "4001", "descripcion": "TELEVISION SUBCONTRATADAs", "factor": 0.176470588, "cc": "4", "scc": "4001"},
-        {"producto": "24080101", "descripcion": "IVA GENERADO EN VENTAS DEL 19%", "factor": 0.033529412, "cc": "", "scc": ""},
-        {"producto": "13050501", "descripcion": "CLIENTES", "factor": 1.0, "cc": "", "scc": ""}
+        {"cuenta": "4145700100", "dc": "C", "linea": "1", "grupo": "1", "producto": "1001", "descripcion": "INTERNET HOGAR", "factor": 0.073117647, "cc": 1, "scc": 1001, "iva": 0, "base_cheque": 0, "cant": 1, "bodega": 1},
+        {"cuenta": "4145700200", "dc": "C", "linea": "1", "grupo": "2", "producto": "2001", "descripcion": "CONCESION DE EQUIPOS", "factor": 0.658058824, "cc": 2, "scc": 2001, "iva": 0, "base_cheque": 0, "cant": 1, "bodega": 1},
+        {"cuenta": "4145950100", "dc": "C", "linea": "1", "grupo": "4", "producto": "4001", "descripcion": "TELEVISION SUBCONTRATADA", "factor": 0.176470588, "cc": 4, "scc": 4001, "iva": 19, "base_cheque": 0, "cant": 1, "bodega": 1},
+        {"cuenta": "1305050100", "dc": "D", "linea": "", "grupo": "", "producto": "", "descripcion": "CLIENTES", "factor": 1.0, "cc": 0, "scc": 0, "iva": 0, "base_cheque": 0, "cant": 0, "bodega": 0},
+        # La cuenta del IVA exige que en la columna de CHEQUE vaya el valor base sobre el cual se calcula
+        {"cuenta": "2408050100", "dc": "C", "linea": "", "grupo": "", "producto": "", "descripcion": "IVA GENERADO EN VENTAS", "factor": 0.033529412, "cc": 0, "scc": 0, "iva": 0, "base_cheque": base_iva_tv, "cant": 0, "bodega": 0}
     ]
     
     resultados = []
     for r in rubros:
         resultados.append({
-            "CÓDIGO PRODUCTO (OBLIGATORIO)": r["producto"],
+            "CUENTA CONTABLE   (OBLIGATORIO)": r["cuenta"],
+            "DÉBITO O CRÉDITO (OBLIGATORIO)": r["dc"],
+            "LÍNEA PRODUCTO": r["linea"],
+            "GRUPO PRODUCTO": r["grupo"],
+            "CÓDIGO PRODUCTO": r["producto"],
             "DESCRIPCIÓN DE LA SECUENCIA": r["descripcion"],
             "VALOR DE LA SECUENCIA   (OBLIGATORIO)": round(total * r["factor"], 2),
-            "cc": r["cc"],
-            "scc": r["scc"]
+            "CENTRO DE COSTO": r["cc"],
+            "SUBCENTRO DE COSTO": r["scc"],
+            "PORCENTAJE DEL IVA DE LA SECUENCIA": r["iva"],
+            "NÚMERO DE CHEQUE": r["base_cheque"],
+            "CANTIDAD": r["cant"],
+            "CÓDIGO DE LA BODEGA": r["bodega"]
         })
     return resultados
 
-# Columnas exactas de la plantilla movimientocontablebasico de SIIGO
+# --- 2. COLUMNAS EXACTAS (91 Campos del Modelo General) ---
 COLUMNAS_SIIGO = [
-    "TIPO DE COMPROBANTE (OBLIGATORIO)",
-    "CÓDIGO COMPROBANTE  (OBLIGATORIO)",
-    "NÚMERO DE DOCUMENTO",
-    "VALOR DE LA SECUENCIA   (OBLIGATORIO)",
-    "AÑO DEL DOCUMENTO (OBLIGATORIO)",
-    "MES DEL DOCUMENTO (OBLIGATORIO)",
-    "DÍA DEL DOCUMENTO (OBLIGATORIO)",
-    "CÓDIGO DEL VENDEDOR",
-    "SECUENCIA (OBLIGATORIO)",
-    "CENTRO DE COSTO (OBLIGATORIO)",
-    "SUBCENTRO DE COSTO (OBLIGATORIO)",
-    "NIT (OBLIGATORIO)",
-    "SUCURSAL (OBLIGATORIO)",
-    "DESCRIPCIÓN DE LA SECUENCIA",
-    "VALOR DEL CARGO 1 DE LA SECUENCIA",
-    "VALOR DEL CARGO 2 DE LA SECUENCIA",
-    "VALOR DEL DESCUENTO 1 DE LA SECUENCIA",
-    "VALOR DEL DESCUENTO 2 DE LA SECUENCIA",
-    "PREFIJO DE ORDER REFERENCE",
-    "CONSECUTIVO DE ORDER REFERENCE",
-    "RUTA DOCUMENTO",
-    "PORCENTAJE DEL IVA DE LA SECUENCIA",
-    "LÍNEA PRODUCTO (OBLIGATORIO)",
-    "GRUPO PRODUCTO (OBLIGATORIO)",
-    "CÓDIGO PRODUCTO (OBLIGATORIO)",
-    "CANTIDAD (OBLIGATORIO)",
-    "CÓDIGO DE LA BODEGA (OBLIGATORIO)",
-    "CÓDIGO DE LA UBICACIÓN (OBLIGATORIO)",
-    "CANTIDAD DE FACTOR DE CONVERSIÓN",
-    "OPERADOR DE FACTOR DE CONVERSIÓN",
-    "VALOR DEL FACTOR DE CONVERSIÓN",
-    "DESCRIPCIÓN DE COMENTARIOS",
-    "DESCRIPCIÓN LARGA"
+    "TIPO DE COMPROBANTE (OBLIGATORIO)", "CÓDIGO COMPROBANTE  (OBLIGATORIO)", "NÚMERO DE DOCUMENTO",
+    "CUENTA CONTABLE   (OBLIGATORIO)", "DÉBITO O CRÉDITO (OBLIGATORIO)", "VALOR DE LA SECUENCIA   (OBLIGATORIO)",
+    "AÑO DEL DOCUMENTO", "MES DEL DOCUMENTO", "DÍA DEL DOCUMENTO", "CÓDIGO DEL VENDEDOR",
+    "CÓDIGO DE LA CIUDAD", "CÓDIGO DE LA ZONA", "SECUENCIA", "CENTRO DE COSTO", "SUBCENTRO DE COSTO",
+    "NIT", "SUCURSAL", "DESCRIPCIÓN DE LA SECUENCIA", "NÚMERO DE CHEQUE", "COMPROBANTE ANULADO",
+    "CÓDIGO DEL MOTIVO DE DEVOLUCIÓN", "FORMA DE PAGO", "VALOR DEL CARGO 1 DE LA SECUENCIA",
+    "VALOR DEL CARGO 2 DE LA SECUENCIA", "VALOR DEL DESCUENTO 1 DE LA SECUENCIA",
+    "VALOR DEL DESCUENTO 2 DE LA SECUENCIA", "VALOR DEL DESCUENTO 3 DE LA SECUENCIA",
+    "FACTURA ELECTRÓNICA A DEBITAR/ACREDITAR", "NÚMERO DE FACTURA ELECTRÓNICA A DEBITAR/ACREDITAR",
+    "PREFIJO DE ORDER REFERENCE", "CONSECUTIVO DE ORDER REFERENCE", "PREFIJO ORDEN DE ENTREGA",
+    "NÚMERO ORDEN DE ENTREGA", "AÑO FECHA DE ORDEN DE ENTREGA", "MES FECHA DE ORDEN DE ENTREGA",
+    "DÍA FECHA DE ORDEN DE ENTREGA", "INGRESOS PARA TERCEROS", "FECHA ACTUALIZACIÓN DEL DOCUMENTO",
+    "HORA DE ACTUALIZACIÓN DEL DOCUMENTO", "PREFIJO ORDEN DE ENTREGA2", "NÚMERO ORDEN DE ENTREGA2",
+    "AÑO FECHA DE ORDEN DE ENTREGA2", "MES FECHA DE ORDEN DE ENTREGA2", "DÍA FECHA DE ORDEN DE ENTREGA2",
+    "PREFIJO ORDEN DE ENTREGA3", "NÚMERO ORDEN DE ENTREGA3", "AÑO FECHA DE ORDEN DE ENTREGA3",
+    "MES FECHA DE ORDEN DE ENTREGA3", "DÍA FECHA DE ORDEN DE ENTREGA3", "PREFIJO ORDEN DE ENTREGA4",
+    "NÚMERO ORDEN DE ENTREGA4", "AÑO FECHA DE ORDEN DE ENTREGA4", "MES FECHA DE ORDEN DE ENTREGA4",
+    "DÍA FECHA DE ORDEN DE ENTREGA4", "PREFIJO ORDEN DE ENTREGA5", "NÚMERO ORDEN DE ENTREGA5",
+    "AÑO FECHA DE ORDEN DE ENTREGA5", "MES FECHA DE ORDEN DE ENTREGA5", "DÍA FECHA DE ORDEN DE ENTREGA5",
+    "PORCENTAJE ALIMENTOS ULTRAPROCESADOS", "VALOR ALIMENTOS ULTRAPROCESADOS", "VALOR BEBIDAS AZUCARADAS",
+    "AÑO EXPEDICIÓN FACTURA", "MES EXPEDICIÓN FACTURA", "DÍA EXPEDICIÓN FACTURA", "RUTA DOCUMENTO",
+    "PORCENTAJE DEL IVA DE LA SECUENCIA", "VALOR DE IVA DE LA SECUENCIA", "BASE DE RETENCIÓN",
+    "BASE PARA CUENTAS MARCADAS COMO RETEIVA", "SECUENCIA GRAVADA O EXCENTA", "PORCENTAJE AIU",
+    "BASE IVA AIU", "VALOR TOTAL IMPOCONSUMO DE LA SECUENCIA", "IVA COMO MAYOR VALOR DE LA COMPRA",
+    "LÍNEA PRODUCTO", "GRUPO PRODUCTO", "CÓDIGO PRODUCTO", "CANTIDAD", "CANTIDAD DOS",
+    "CÓDIGO DE LA BODEGA", "CÓDIGO DE LA UBICACIÓN", "CANTIDAD DE FACTOR DE CONVERSIÓN",
+    "OPERADOR DE FACTOR DE CONVERSIÓN", "VALOR DEL FACTOR DE CONVERSIÓN", "TIPO Y COMPROBANTE CRUCE",
+    "NÚMERO DE DOCUMENTO CRUCE", "NÚMERO DE VENCIMIENTO", "AÑO VENCIMIENTO DE DOCUMENTO CRUCE",
+    "MES VENCIMIENTO DE DOCUMENTO CRUCE", "DÍA VENCIMIENTO DE DOCUMENTO CRUCE"
 ]
 
-# Subida del archivo de clientes
 archivo_clientes = st.file_uploader("Sube el archivo 'Lista de Clientes - SEÑAL MÁS.xlsx' o CSV", type=['xlsx', 'csv'])
 
 if archivo_clientes is not None:
     try:
-        # Leer el archivo
         if archivo_clientes.name.endswith('.csv'):
             df_clientes = pd.read_csv(archivo_clientes) 
         else:
             df_clientes = pd.read_excel(archivo_clientes)
         
-        # Limpiar columnas vacías y espacios en los nombres
         df_clientes = df_clientes.dropna(axis=1, how='all')
         df_clientes.columns = df_clientes.columns.str.strip()
         
         st.success("Archivo cargado correctamente.")
         
-        # Validar que existan las columnas obligatorias
         columnas_requeridas = ['Estado', 'Servicio', 'Valor']
         columnas_faltantes = [col for col in columnas_requeridas if col not in df_clientes.columns]
         
         if not columnas_faltantes:
             df_clientes['Estado'] = df_clientes['Estado'].astype(str).str.strip().str.upper()
-            
-            # Filtrar clientes Activos y Suspendidos
             estados_a_facturar = ['ACTIVO', 'SUSPENDIDO']
             df_a_facturar = df_clientes[df_clientes['Estado'].isin(estados_a_facturar)]
             
@@ -262,24 +261,66 @@ if archivo_clientes is not None:
                         
                         secuencia = 1
                         for item in desglose:
+                            # 1. Llenamos con vacíos primero
                             fila = {col: "" for col in COLUMNAS_SIIGO}
                             
+                            # 2. Inyectamos los 0 exigidos por el Modelo General
+                            for col in [
+                                "CÓDIGO DE LA ZONA", "CENTRO DE COSTO", "SUBCENTRO DE COSTO", "SUCURSAL",
+                                "CÓDIGO DEL MOTIVO DE DEVOLUCIÓN", "FORMA DE PAGO", 
+                                "VALOR DEL CARGO 1 DE LA SECUENCIA", "VALOR DEL CARGO 2 DE LA SECUENCIA",
+                                "VALOR DEL DESCUENTO 1 DE LA SECUENCIA", "VALOR DEL DESCUENTO 2 DE LA SECUENCIA",
+                                "VALOR DEL DESCUENTO 3 DE LA SECUENCIA", 
+                                "NÚMERO DE FACTURA ELECTRÓNICA A DEBITAR/ACREDITAR",
+                                "AÑO FECHA DE ORDEN DE ENTREGA", "MES FECHA DE ORDEN DE ENTREGA", "DÍA FECHA DE ORDEN DE ENTREGA",
+                                "AÑO FECHA DE ORDEN DE ENTREGA2", "MES FECHA DE ORDEN DE ENTREGA2", "DÍA FECHA DE ORDEN DE ENTREGA2",
+                                "AÑO FECHA DE ORDEN DE ENTREGA3", "MES FECHA DE ORDEN DE ENTREGA3", "DÍA FECHA DE ORDEN DE ENTREGA3",
+                                "AÑO FECHA DE ORDEN DE ENTREGA4", "MES FECHA DE ORDEN DE ENTREGA4", "DÍA FECHA DE ORDEN DE ENTREGA4",
+                                "AÑO FECHA DE ORDEN DE ENTREGA5", "MES FECHA DE ORDEN DE ENTREGA5", "DÍA FECHA DE ORDEN DE ENTREGA5",
+                                "PORCENTAJE ALIMENTOS ULTRAPROCESADOS", "VALOR ALIMENTOS ULTRAPROCESADOS", "VALOR BEBIDAS AZUCARADAS",
+                                "PORCENTAJE DEL IVA DE LA SECUENCIA", "VALOR DE IVA DE LA SECUENCIA",
+                                "BASE PARA CUENTAS MARCADAS COMO RETEIVA", "VALOR TOTAL IMPOCONSUMO DE LA SECUENCIA",
+                                "CANTIDAD", "CANTIDAD DOS", "CÓDIGO DE LA BODEGA", "CÓDIGO DE LA UBICACIÓN",
+                                "CANTIDAD DE FACTOR DE CONVERSIÓN", "OPERADOR DE FACTOR DE CONVERSIÓN", "VALOR DEL FACTOR DE CONVERSIÓN",
+                                "NÚMERO DE DOCUMENTO CRUCE", "NÚMERO DE VENCIMIENTO", "NÚMERO DE CHEQUE"
+                            ]:
+                                fila[col] = 0
+                                
+                            # 3. Asignaciones estrictas
                             fila["TIPO DE COMPROBANTE (OBLIGATORIO)"] = "F"
-                            fila["CÓDIGO COMPROBANTE  (OBLIGATORIO)"] = "6"
+                            fila["CÓDIGO COMPROBANTE  (OBLIGATORIO)"] = "11" # Modificable según el consecutivo del cliente
+                            fila["NÚMERO DE DOCUMENTO"] = "" # Dejamos en blanco para que SIIGO asigne consecutivo
+                            
+                            fila["CUENTA CONTABLE   (OBLIGATORIO)"] = item["CUENTA CONTABLE   (OBLIGATORIO)"]
+                            fila["DÉBITO O CRÉDITO (OBLIGATORIO)"] = item["DÉBITO O CRÉDITO (OBLIGATORIO)"]
                             fila["VALOR DE LA SECUENCIA   (OBLIGATORIO)"] = item["VALOR DE LA SECUENCIA   (OBLIGATORIO)"]
-                            fila["AÑO DEL DOCUMENTO (OBLIGATORIO)"] = hoy.year
-                            fila["MES DEL DOCUMENTO (OBLIGATORIO)"] = hoy.month
-                            fila["DÍA DEL DOCUMENTO (OBLIGATORIO)"] = hoy.day
-                            fila["CÓDIGO DEL VENDEDOR"] = "1"
-                            fila["SECUENCIA (OBLIGATORIO)"] = secuencia
-                            fila["CENTRO DE COSTO (OBLIGATORIO)"] = item["cc"]
-                            fila["SUBCENTRO DE COSTO (OBLIGATORIO)"] = item["scc"]
-                            fila["NIT (OBLIGATORIO)"] = nit_cliente
-                            fila["SUCURSAL (OBLIGATORIO)"] = "0"
+                            
+                            fila["AÑO DEL DOCUMENTO"] = hoy.year
+                            fila["MES DEL DOCUMENTO"] = hoy.month
+                            fila["DÍA DEL DOCUMENTO"] = hoy.day
+                            fila["CÓDIGO DEL VENDEDOR"] = 1
+                            fila["CÓDIGO DE LA CIUDAD"] = 349 
+                            
+                            fila["SECUENCIA"] = secuencia
+                            fila["CENTRO DE COSTO"] = item["CENTRO DE COSTO"]
+                            fila["SUBCENTRO DE COSTO"] = item["SUBCENTRO DE COSTO"]
+                            fila["NIT"] = nit_cliente
+                            
+                            fila["COMPROBANTE ANULADO"] = "N"
                             fila["DESCRIPCIÓN DE LA SECUENCIA"] = item["DESCRIPCIÓN DE LA SECUENCIA"]
-                            fila["CÓDIGO PRODUCTO (OBLIGATORIO)"] = item["CÓDIGO PRODUCTO (OBLIGATORIO)"]
-                            fila["CANTIDAD (OBLIGATORIO)"] = "1"
-                            fila["CÓDIGO DE LA BODEGA (OBLIGATORIO)"] = "1"
+                            fila["NÚMERO DE CHEQUE"] = item["NÚMERO DE CHEQUE"]
+                            
+                            fila["FECHA ACTUALIZACIÓN DEL DOCUMENTO"] = hoy.strftime("%Y%m%d")
+                            fila["HORA DE ACTUALIZACIÓN DEL DOCUMENTO"] = hoy.strftime("%H%M%S")
+                            
+                            fila["PORCENTAJE DEL IVA DE LA SECUENCIA"] = item["PORCENTAJE DEL IVA DE LA SECUENCIA"]
+                            
+                            fila["LÍNEA PRODUCTO"] = item["LÍNEA PRODUCTO"]
+                            fila["GRUPO PRODUCTO"] = item["GRUPO PRODUCTO"]
+                            fila["CÓDIGO PRODUCTO"] = item["CÓDIGO PRODUCTO"]
+                            
+                            fila["CANTIDAD"] = item["CANTIDAD"]
+                            fila["CÓDIGO DE LA BODEGA"] = item["CÓDIGO DE LA BODEGA"]
                             
                             filas_siigo.append(fila)
                             secuencia += 1
@@ -299,30 +340,25 @@ if archivo_clientes is not None:
                     df_siigo = pd.DataFrame(filas_siigo, columns=COLUMNAS_SIIGO)
                     
                     st.success("¡Archivo generado con éxito en el formato exacto de SIIGO!")
-                    st.dataframe(df_siigo.head(10))
                     
                     buffer = io.BytesIO()
                     with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-                        # 1. Desplazamos los datos de Pandas para que empiecen en la fila 5 (índice 4 de Excel)
+                        # Empezamos el pegado de datos desde la Fila 5 (índice 4 en Excel)
                         df_siigo.to_excel(writer, index=False, sheet_name='Movimiento', startrow=4)
                         
-                        # 2. Accedemos de forma directa a la hoja de cálculo de xlsxwriter
                         workbook = writer.book
                         worksheet = writer.sheets['Movimiento']
                         
-                        # 3. Inyectamos los textos requeridos por la plantilla en las filas indicadas
-                        # Fila 1 de Excel (Índice 0): Nombre de la empresa
+                        # Inyectamos el formato estricto en las primeras filas
                         worksheet.write(0, 0, "EMPRESA DE INTERNET Y TELEVISION SEÑAL MAS S.A.S.")
-                        
-                        # Fila 2 de Excel (Índice 1): Nombre del modelo
-                        worksheet.write(1, 0, "MODELO PARA LA IMPORTACION DE MOVIMIENTO CONTABLE - MODELO BÁSICO")
-                        
-                        # Nota: Las filas 3 y 4 (índices 2 y 3) no se tocan, por lo que permanecen vacías automáticamente.
+                        worksheet.write(1, 0, "MODELO PARA LA IMPORTACION DE MOVIMIENTO CONTABLE - MODELO GENERAL")
+                        worksheet.write(2, 0, f"De :  ENE  1/{hoy.year}   A :  DIC 31/{hoy.year}")
+                        # La fila 4 (índice 3) queda en blanco por defecto.
                     
                     st.download_button(
-                        label="📥 Descargar Archivo 100% Compatible",
+                        label="📥 Descargar Archivo SIIGO (Modelo General)",
                         data=buffer.getvalue(),
-                        file_name=f"movimiento_siigo_completo_{hoy.strftime('%Y%m%d')}.xlsx",
+                        file_name=f"Plantilla_General_SIIGO_{hoy.strftime('%Y%m%d')}.xlsx",
                         mime="application/vnd.ms-excel",
                         type="primary"
                     )
