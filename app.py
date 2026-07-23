@@ -4,10 +4,10 @@ from datetime import datetime
 import io
 import base64
 
-# Configuración de la página (Aquí se carga el favicon de la pestaña)
+# Configuración de la página
 st.set_page_config(
     page_title="Facturación en Bloque - Señal Más", 
-    page_icon="logoSenalMas.ico", # Ícono de la pestaña
+    page_icon="logoSenalMas.ico",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -143,20 +143,44 @@ except Exception:
     st.title("Generador de Facturación en Bloque SIIGO 🚀")
     st.warning("No se encontró la imagen 'logoSenalMas.jpeg'. Verifica el nombre en Github.")
 
-st.markdown("<p style='text-align: center;'>Sube la lista de clientes para generar automáticamente el archivo de movimiento contable (Modelo General).</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center;'>Sube la lista de clientes para generar automáticamente el archivo de movimiento contable (Modelo General - 8 Secuencias).</p>", unsafe_allow_html=True)
 
-# --- 1. FUNCIÓN DE RUBROS (Adaptada al Modelo General) ---
-def calcular_rubros(total):
-    # Base del IVA (Se extrae del valor del servicio de TV)
-    base_iva_tv = round(total * 0.176470588, 2)
+# --- 1. FUNCIÓN DE RUBROS (8 SECUENCIAS DEL MODELO GENERAL) ---
+def calcular_rubros(total, nombre_cliente):
+    # Cálculos matemáticos precisos
+    val_internet = round(total * 0.073117647, 2)
+    val_equipos = round(total * 0.658058824, 2)
+    val_tv = round(total * 0.176470588, 2)
+    val_iva = round(total * 0.033529412, 2)
     
+    # El valor de clientes debe ser la suma exacta para evitar descuadres de centavos
+    val_clientes = round(val_internet + val_equipos + val_tv + val_iva, 2) 
+    
+    # 8 Filas requeridas por la plantilla (Ingresos, CxC, Impuestos e Inventarios)
     rubros = [
-        {"cuenta": "4145700100", "dc": "C", "linea": "1", "grupo": "1", "producto": "1001", "descripcion": "INTERNET HOGAR", "factor": 0.073117647, "cc": 1, "scc": 1001, "iva": 0, "base_cheque": 0, "cant": 1, "bodega": 1},
-        {"cuenta": "4145700200", "dc": "C", "linea": "1", "grupo": "2", "producto": "2001", "descripcion": "CONCESION DE EQUIPOS", "factor": 0.658058824, "cc": 2, "scc": 2001, "iva": 0, "base_cheque": 0, "cant": 1, "bodega": 1},
-        {"cuenta": "4145950100", "dc": "C", "linea": "1", "grupo": "4", "producto": "4001", "descripcion": "TELEVISION SUBCONTRATADA", "factor": 0.176470588, "cc": 4, "scc": 4001, "iva": 19, "base_cheque": 0, "cant": 1, "bodega": 1},
-        {"cuenta": "1305050100", "dc": "D", "linea": "", "grupo": "", "producto": "", "descripcion": "CLIENTES", "factor": 1.0, "cc": 0, "scc": 0, "iva": 0, "base_cheque": 0, "cant": 0, "bodega": 0},
-        # La cuenta del IVA exige que en la columna de CHEQUE vaya el valor base sobre el cual se calcula
-        {"cuenta": "2408050100", "dc": "C", "linea": "", "grupo": "", "producto": "", "descripcion": "IVA GENERADO EN VENTAS", "factor": 0.033529412, "cc": 0, "scc": 0, "iva": 0, "base_cheque": base_iva_tv, "cant": 0, "bodega": 0}
+        # 1. Ingreso Internet
+        {"cuenta": "4145700100", "dc": "C", "linea": "1", "grupo": "1", "producto": "1001", "descripcion": "INTERNET HOGAR", "valor": val_internet, "cc": 0, "scc": 0, "zona": 1, "iva": 0, "gravada": "N", "base_cheque": 0, "cant": 1, "bodega": 1, "forma_pago": 0},
+        
+        # 2. Ingreso Equipos
+        {"cuenta": "4145700200", "dc": "C", "linea": "1", "grupo": "2", "producto": "2001", "descripcion": "CONCESION DE EQUIPOS", "valor": val_equipos, "cc": 0, "scc": 0, "zona": 1, "iva": 0, "gravada": "N", "base_cheque": 0, "cant": 1, "bodega": 1, "forma_pago": 0},
+        
+        # 3. Ingreso TV (OJO: Centro de costo 1, IVA 19, Gravada S)
+        {"cuenta": "4145950100", "dc": "C", "linea": "1", "grupo": "4", "producto": "4001", "descripcion": "TELEVISION SUBCONTRATADA", "valor": val_tv, "cc": 1, "scc": 0, "zona": 1, "iva": 19, "gravada": "S", "base_cheque": 0, "cant": 1, "bodega": 1, "forma_pago": 0},
+        
+        # 4. Clientes (OJO: Forma de pago 1)
+        {"cuenta": "1305050100", "dc": "D", "linea": "", "grupo": "", "producto": "", "descripcion": nombre_cliente, "valor": val_clientes, "cc": 0, "scc": 0, "zona": 0, "iva": 0, "gravada": "", "base_cheque": 0, "cant": 0, "bodega": 0, "forma_pago": 1},
+        
+        # 5. IVA (OJO: El cheque lleva la base del servicio TV)
+        {"cuenta": "2408050100", "dc": "C", "linea": "", "grupo": "", "producto": "", "descripcion": nombre_cliente, "valor": val_iva, "cc": 0, "scc": 0, "zona": 0, "iva": 0, "gravada": "", "base_cheque": val_tv, "cant": 0, "bodega": 0, "forma_pago": 0},
+        
+        # 6. Costo/Inventario Internet (OJO: Valor 0, Cheque lleva el valor base de Internet)
+        {"cuenta": "1435010100", "dc": "C", "linea": "1", "grupo": "1", "producto": "1001", "descripcion": "INTERNET HOGAR", "valor": 0, "cc": 0, "scc": 0, "zona": 1, "iva": 0, "gravada": "N", "base_cheque": val_internet, "cant": 1, "bodega": 1, "forma_pago": 0},
+        
+        # 7. Costo/Inventario Equipos (OJO: Valor 0, Cheque lleva el valor base de Equipos)
+        {"cuenta": "1435010100", "dc": "C", "linea": "1", "grupo": "2", "producto": "2001", "descripcion": "CONCESION DE EQUIPOS", "valor": 0, "cc": 0, "scc": 0, "zona": 1, "iva": 0, "gravada": "N", "base_cheque": val_equipos, "cant": 1, "bodega": 1, "forma_pago": 0},
+        
+        # 8. Costo/Inventario TV (OJO: Valor 0, Cheque lleva el valor base de TV, Gravada N en esta cuenta)
+        {"cuenta": "1435010100", "dc": "C", "linea": "1", "grupo": "4", "producto": "4001", "descripcion": "TELEVISION SUBCONTRATADA", "valor": 0, "cc": 0, "scc": 0, "zona": 1, "iva": 0, "gravada": "N", "base_cheque": val_tv, "cant": 1, "bodega": 1, "forma_pago": 0}
     ]
     
     resultados = []
@@ -168,9 +192,12 @@ def calcular_rubros(total):
             "GRUPO PRODUCTO": r["grupo"],
             "CÓDIGO PRODUCTO": r["producto"],
             "DESCRIPCIÓN DE LA SECUENCIA": r["descripcion"],
-            "VALOR DE LA SECUENCIA   (OBLIGATORIO)": round(total * r["factor"], 2),
+            "VALOR DE LA SECUENCIA   (OBLIGATORIO)": r["valor"],
             "CENTRO DE COSTO": r["cc"],
             "SUBCENTRO DE COSTO": r["scc"],
+            "CÓDIGO DE LA ZONA": r["zona"],
+            "SECUENCIA GRAVADA O EXCENTA": r["gravada"],
+            "FORMA DE PAGO": r["forma_pago"],
             "PORCENTAJE DEL IVA DE LA SECUENCIA": r["iva"],
             "NÚMERO DE CHEQUE": r["base_cheque"],
             "CANTIDAD": r["cant"],
@@ -257,17 +284,18 @@ if archivo_clientes is not None:
                         if precio_plan <= 0:
                             raise ValueError("Valor cero o negativo")
                         
-                        desglose = calcular_rubros(precio_plan)
+                        # Por ahora mandaremos el texto 'CLIENTES'. Si tu Excel tiene una columna con el nombre
+                        # del cliente, deberías cambiar "CLIENTES" por row['Nombre_Columna_Nombre']
+                        desglose = calcular_rubros(precio_plan, "CLIENTES")
                         
                         secuencia = 1
                         for item in desglose:
                             # 1. Llenamos con vacíos primero
                             fila = {col: "" for col in COLUMNAS_SIIGO}
                             
-                            # 2. Inyectamos los 0 exigidos por el Modelo General
+                            # 2. Inyectamos los 0 exigidos por el Modelo General (EXCEPTO los campos de Cruce)
                             for col in [
-                                "CÓDIGO DE LA ZONA", "CENTRO DE COSTO", "SUBCENTRO DE COSTO", "SUCURSAL",
-                                "CÓDIGO DEL MOTIVO DE DEVOLUCIÓN", "FORMA DE PAGO", 
+                                "SUCURSAL", "CÓDIGO DEL MOTIVO DE DEVOLUCIÓN", 
                                 "VALOR DEL CARGO 1 DE LA SECUENCIA", "VALOR DEL CARGO 2 DE LA SECUENCIA",
                                 "VALOR DEL DESCUENTO 1 DE LA SECUENCIA", "VALOR DEL DESCUENTO 2 DE LA SECUENCIA",
                                 "VALOR DEL DESCUENTO 3 DE LA SECUENCIA", 
@@ -278,18 +306,17 @@ if archivo_clientes is not None:
                                 "AÑO FECHA DE ORDEN DE ENTREGA4", "MES FECHA DE ORDEN DE ENTREGA4", "DÍA FECHA DE ORDEN DE ENTREGA4",
                                 "AÑO FECHA DE ORDEN DE ENTREGA5", "MES FECHA DE ORDEN DE ENTREGA5", "DÍA FECHA DE ORDEN DE ENTREGA5",
                                 "PORCENTAJE ALIMENTOS ULTRAPROCESADOS", "VALOR ALIMENTOS ULTRAPROCESADOS", "VALOR BEBIDAS AZUCARADAS",
-                                "PORCENTAJE DEL IVA DE LA SECUENCIA", "VALOR DE IVA DE LA SECUENCIA",
-                                "BASE PARA CUENTAS MARCADAS COMO RETEIVA", "VALOR TOTAL IMPOCONSUMO DE LA SECUENCIA",
-                                "CANTIDAD", "CANTIDAD DOS", "CÓDIGO DE LA BODEGA", "CÓDIGO DE LA UBICACIÓN",
-                                "CANTIDAD DE FACTOR DE CONVERSIÓN", "OPERADOR DE FACTOR DE CONVERSIÓN", "VALOR DEL FACTOR DE CONVERSIÓN",
-                                "NÚMERO DE DOCUMENTO CRUCE", "NÚMERO DE VENCIMIENTO", "NÚMERO DE CHEQUE"
+                                "VALOR DE IVA DE LA SECUENCIA", "BASE PARA CUENTAS MARCADAS COMO RETEIVA", 
+                                "VALOR TOTAL IMPOCONSUMO DE LA SECUENCIA",
+                                "CÓDIGO DE LA UBICACIÓN", "CANTIDAD DOS",
+                                "CANTIDAD DE FACTOR DE CONVERSIÓN", "OPERADOR DE FACTOR DE CONVERSIÓN", "VALOR DEL FACTOR DE CONVERSIÓN"
                             ]:
                                 fila[col] = 0
                                 
                             # 3. Asignaciones estrictas
                             fila["TIPO DE COMPROBANTE (OBLIGATORIO)"] = "F"
-                            fila["CÓDIGO COMPROBANTE  (OBLIGATORIO)"] = "11" # Modificable según el consecutivo del cliente
-                            fila["NÚMERO DE DOCUMENTO"] = "" # Dejamos en blanco para que SIIGO asigne consecutivo
+                            fila["CÓDIGO COMPROBANTE  (OBLIGATORIO)"] = "11" 
+                            fila["NÚMERO DE DOCUMENTO"] = "" 
                             
                             fila["CUENTA CONTABLE   (OBLIGATORIO)"] = item["CUENTA CONTABLE   (OBLIGATORIO)"]
                             fila["DÉBITO O CRÉDITO (OBLIGATORIO)"] = item["DÉBITO O CRÉDITO (OBLIGATORIO)"]
@@ -304,16 +331,19 @@ if archivo_clientes is not None:
                             fila["SECUENCIA"] = secuencia
                             fila["CENTRO DE COSTO"] = item["CENTRO DE COSTO"]
                             fila["SUBCENTRO DE COSTO"] = item["SUBCENTRO DE COSTO"]
+                            fila["CÓDIGO DE LA ZONA"] = item["CÓDIGO DE LA ZONA"]
                             fila["NIT"] = nit_cliente
                             
                             fila["COMPROBANTE ANULADO"] = "N"
                             fila["DESCRIPCIÓN DE LA SECUENCIA"] = item["DESCRIPCIÓN DE LA SECUENCIA"]
                             fila["NÚMERO DE CHEQUE"] = item["NÚMERO DE CHEQUE"]
+                            fila["FORMA DE PAGO"] = item["FORMA DE PAGO"]
                             
                             fila["FECHA ACTUALIZACIÓN DEL DOCUMENTO"] = hoy.strftime("%Y%m%d")
                             fila["HORA DE ACTUALIZACIÓN DEL DOCUMENTO"] = hoy.strftime("%H%M%S")
                             
                             fila["PORCENTAJE DEL IVA DE LA SECUENCIA"] = item["PORCENTAJE DEL IVA DE LA SECUENCIA"]
+                            fila["SECUENCIA GRAVADA O EXCENTA"] = item["SECUENCIA GRAVADA O EXCENTA"]
                             
                             fila["LÍNEA PRODUCTO"] = item["LÍNEA PRODUCTO"]
                             fila["GRUPO PRODUCTO"] = item["GRUPO PRODUCTO"]
@@ -343,17 +373,14 @@ if archivo_clientes is not None:
                     
                     buffer = io.BytesIO()
                     with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-                        # Empezamos el pegado de datos desde la Fila 5 (índice 4 en Excel)
                         df_siigo.to_excel(writer, index=False, sheet_name='Movimiento', startrow=4)
                         
                         workbook = writer.book
                         worksheet = writer.sheets['Movimiento']
                         
-                        # Inyectamos el formato estricto en las primeras filas
                         worksheet.write(0, 0, "EMPRESA DE INTERNET Y TELEVISION SEÑAL MAS S.A.S.")
                         worksheet.write(1, 0, "MODELO PARA LA IMPORTACION DE MOVIMIENTO CONTABLE - MODELO GENERAL")
                         worksheet.write(2, 0, f"De :  ENE  1/{hoy.year}   A :  DIC 31/{hoy.year}")
-                        # La fila 4 (índice 3) queda en blanco por defecto.
                     
                     st.download_button(
                         label="📥 Descargar Archivo SIIGO (Modelo General)",
