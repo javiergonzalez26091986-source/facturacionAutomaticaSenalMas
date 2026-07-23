@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import pytz
 import io
 import base64
 
@@ -264,7 +265,9 @@ if archivo_clientes is not None:
             
             if st.button("Generar Archivo SIIGO"):
                 filas_siigo = []
-                hoy = datetime.now()
+                # Configuración de zona horaria de Colombia
+                zona_colombia = pytz.timezone('America/Bogota')
+                hoy = datetime.now(zona_colombia)
                 errores = [] 
                 
                 barra_progreso = st.progress(0)
