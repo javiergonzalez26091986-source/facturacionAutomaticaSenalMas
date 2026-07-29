@@ -148,13 +148,15 @@ st.markdown("<p style='text-align: center;'>Sube la lista de clientes para gener
 
 # --- 1. FUNCIÓN DE RUBROS (8 SECUENCIAS DEL MODELO GENERAL) ---
 def calcular_rubros(total, nombre_cliente):
-    # Cálculos matemáticos precisos
-    val_internet = round(total * 0.073117647, 2)
-    val_equipos = round(total * 0.658058824, 2)
-    val_tv = round(total * 0.176470588, 2)
-    val_iva = round(total * 0.033529412, 2)
+    # Cálculos matemáticos precisos normalizados al 100% exacto del valor ingresado
+    val_tv = round(total * 0.1875, 2)
+    val_iva = round(val_tv * 0.19, 2) # Garantiza que el IVA sea exactamente el 19% del rubro TV
+    val_internet = round(total * 0.0776875, 2)
     
-    # El valor de clientes debe ser la suma exacta para evitar descuadres de centavos
+    # Se calcula equipos por diferencia para asegurar un cuadre perfecto y evitar rechazos por centavos
+    val_equipos = round(total - val_tv - val_iva - val_internet, 2)
+    
+    # El valor de la cuenta por cobrar es la suma exacta de los componentes
     val_clientes = round(val_internet + val_equipos + val_tv + val_iva, 2) 
     
     # 8 Filas requeridas por la plantilla (Ingresos, CxC, Impuestos e Inventarios)
@@ -165,22 +167,22 @@ def calcular_rubros(total, nombre_cliente):
         # 2. Ingreso Equipos
         {"cuenta": "4145700200", "dc": "C", "linea": "1", "grupo": "2", "producto": "2001", "descripcion": "CONCESION DE EQUIPOS", "valor": val_equipos, "cc": 0, "scc": 0, "zona": 1, "iva": 0, "gravada": "N", "base_cheque": 0, "cant": 1, "bodega": 1, "forma_pago": 0},
         
-        # 3. Ingreso TV (OJO: Centro de costo 1, IVA 19, Gravada S)
+        # 3. Ingreso TV
         {"cuenta": "4145950100", "dc": "C", "linea": "1", "grupo": "4", "producto": "4001", "descripcion": "TELEVISION SUBCONTRATADA", "valor": val_tv, "cc": 1, "scc": 0, "zona": 1, "iva": 19, "gravada": "S", "base_cheque": 0, "cant": 1, "bodega": 1, "forma_pago": 0},
         
-        # 4. Clientes (OJO: Forma de pago 1)
+        # 4. Clientes
         {"cuenta": "1305050100", "dc": "D", "linea": "", "grupo": "", "producto": "", "descripcion": nombre_cliente, "valor": val_clientes, "cc": 0, "scc": 0, "zona": 0, "iva": 0, "gravada": "", "base_cheque": 0, "cant": 0, "bodega": 0, "forma_pago": 1},
         
-        # 5. IVA (OJO: El cheque lleva la base del servicio TV)
+        # 5. IVA
         {"cuenta": "2408050100", "dc": "C", "linea": "", "grupo": "", "producto": "", "descripcion": nombre_cliente, "valor": val_iva, "cc": 0, "scc": 0, "zona": 0, "iva": 0, "gravada": "", "base_cheque": val_tv, "cant": 0, "bodega": 0, "forma_pago": 0},
         
-        # 6. Costo/Inventario Internet (OJO: Valor 0, Cheque lleva el valor base de Internet)
+        # 6. Costo/Inventario Internet
         {"cuenta": "1435010100", "dc": "C", "linea": "1", "grupo": "1", "producto": "1001", "descripcion": "INTERNET HOGAR", "valor": 0, "cc": 0, "scc": 0, "zona": 1, "iva": 0, "gravada": "N", "base_cheque": val_internet, "cant": 1, "bodega": 1, "forma_pago": 0},
         
-        # 7. Costo/Inventario Equipos (OJO: Valor 0, Cheque lleva el valor base de Equipos)
+        # 7. Costo/Inventario Equipos
         {"cuenta": "1435010100", "dc": "C", "linea": "1", "grupo": "2", "producto": "2001", "descripcion": "CONCESION DE EQUIPOS", "valor": 0, "cc": 0, "scc": 0, "zona": 1, "iva": 0, "gravada": "N", "base_cheque": val_equipos, "cant": 1, "bodega": 1, "forma_pago": 0},
         
-        # 8. Costo/Inventario TV (OJO: Valor 0, Cheque lleva el valor base de TV, Gravada N en esta cuenta)
+        # 8. Costo/Inventario TV
         {"cuenta": "1435010100", "dc": "C", "linea": "1", "grupo": "4", "producto": "4001", "descripcion": "TELEVISION SUBCONTRATADA", "valor": 0, "cc": 0, "scc": 0, "zona": 1, "iva": 0, "gravada": "N", "base_cheque": val_tv, "cant": 1, "bodega": 1, "forma_pago": 0}
     ]
     
@@ -287,8 +289,6 @@ if archivo_clientes is not None:
                         if precio_plan <= 0:
                             raise ValueError("Valor cero o negativo")
                         
-                        # Por ahora mandaremos el texto 'CLIENTES'. Si tu Excel tiene una columna con el nombre
-                        # del cliente, deberías cambiar "CLIENTES" por row['Nombre_Columna_Nombre']
                         desglose = calcular_rubros(precio_plan, "CLIENTES")
                         
                         secuencia = 1
